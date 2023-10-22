@@ -6,7 +6,7 @@ and sentiments in input text. It scores 95% accuracy, making it a
 useful detector.
 
 ## Teammates
-Achyuth S.S.
-Eliot Hall 
-Harsh Panchal
-Aditya R.G.
+- Achyuth S.S.
+- Eliot Hall 
+- Harsh Panchal
+- Aditya R.G.
