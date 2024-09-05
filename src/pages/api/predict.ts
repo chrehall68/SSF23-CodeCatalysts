@@ -1,21 +1,16 @@
-import * as tf from '@tensorflow/tfjs-node';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import formidable, { IncomingForm, Fields, Files, File } from 'formidable';
+import axios from 'axios';
 import fs from 'fs';
 
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: false, // We disable bodyParser because we're handling file uploads
   },
 };
 
-let model: tf.LayersModel | null = null;
-
-const loadModel = async () => {
-  if (!model) {
-    model = await tf.loadLayersModel('file://path-to-your-model/model.h5');
-  }
-};
+const HUGGINGFACE_API_URL = 'https://api-inference.huggingface.co/models/chreh/bert-discrimination-classifier';
+const HUGGINGFACE_API_TOKEN = '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'; // You need to get this from Hugging Face
 
 const readFile = (file: File): Promise<Buffer> =>
   new Promise((resolve, reject) => {
@@ -28,12 +23,7 @@ const readFile = (file: File): Promise<Buffer> =>
     });
   });
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  await loadModel(); // Ensure the model is loaded
-
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).end(); // Method Not Allowed
   }
@@ -46,43 +36,67 @@ export default async function handler(
     }
 
     const { text } = fields as { text?: string };
-    const sentiment = await processInput(text, files);
+    let sentiment;
+
+    if (text) {
+      sentiment = await analyzeText(text);
+    } else if (files && files.image) {
+      const imageFile = files.image as unknown as File;
+      sentiment = await analyzeImage(imageFile);
+    }
+
+    if (!sentiment) {
+      return res.status(400).json({ error: 'No valid input provided' });
+    }
 
     res.status(200).json({ sentiment });
   });
 }
 
-async function processInput(text?: string, files?: Files): Promise<string> {
-  let sentiment = 'Neutral'; // Default sentiment
+// Function to analyze text using Hugging Face model
+async function analyzeText(text: string): Promise<string> {
+  try {
+    const response = await axios.post(
+      HUGGINGFACE_API_URL,
+      {
+        inputs: text,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${HUGGINGFACE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
-  if (text) {
-    // Example: Tokenize and process text input
-    const tokenizedText = tokenizeText(text); // Implement this based on your model
-    const inputTensor = tf.tensor([tokenizedText]);
-    const prediction = model!.predict(inputTensor) as tf.Tensor;
-    sentiment = prediction.dataSync()[0] > 0.5 ? 'Positive' : 'Negative';
+    const sentiment = response.data[0].label; // Get the sentiment label from the model response
+    return sentiment;
+  } catch (error) {
+    console.error('Error analyzing text:', error);
+    return 'Error';
   }
-
-  if (files && files.image) {
-    const imageFile = files.image as unknown as File;
-    const imageBuffer = await readFile(imageFile);
-
-    // Load and preprocess image (example: resizing and normalizing)
-    const imageTensor = tf.node.decodeImage(imageBuffer, 3)
-      .resizeNearestNeighbor([224, 224]) // Resize to the input size expected by the model
-      .toFloat()
-      .div(tf.scalar(255.0)) // Normalize to [0, 1]
-      .expandDims();
-
-    const imagePrediction = model!.predict(imageTensor) as tf.Tensor;
-    const imageSentiment = imagePrediction.dataSync()[0];
-    sentiment = imageSentiment > 0.5 ? 'Positive' : 'Negative';
-  }
-
-  return sentiment;
 }
 
-function tokenizeText(text: string) {
-  // Implement tokenization logic based on your model’s requirements
-  return [/* tokenized text data */];
+// Function to analyze an image using Hugging Face model
+async function analyzeImage(imageFile: File): Promise<string> {
+  try {
+    const imageBuffer = await readFile(imageFile);
+
+    const response = await axios.post(
+      HUGGINGFACE_API_URL,
+      imageBuffer,
+      {
+        headers: {
+          Authorization: `Bearer ${HUGGINGFACE_API_TOKEN}`,
+          'Content-Type': 'application/octet-stream',
+        },
+      }
+    );
+
+    const sentiment = response.data[0].label; // Get the sentiment label from the model response
+    return sentiment;
+  } catch (error) {
+    console.error('Error analyzing image:', error);
+    return 'Error';
+  }
 }

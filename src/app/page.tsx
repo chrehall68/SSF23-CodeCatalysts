@@ -1,7 +1,18 @@
 "use client";
 
+import { SetStateAction, useState } from "react";
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
-import { useState } from 'react';
 
 export default function Home() {
   const [inputText, setInputText] = useState('');
@@ -19,7 +30,6 @@ export default function Home() {
       formData.append('image', selectedImage);
     }
 
-    // Send the data to the API
     const res = await fetch('/api/predict', {
       method: 'POST',
       body: formData,
@@ -37,28 +47,33 @@ export default function Home() {
 
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Sentiment Analysis</h1>
-      <form onSubmit={handleSubmit}>
-        <textarea
-          className="border p-2 w-full"
-          rows={3}
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="Type something to analyze sentiment..."
-        />
-        <div className="my-4">
-          <input type="file" accept="image/*" onChange={handleImageChange} />
-        </div>
-        <button className="bg-blue-500 text-white py-2 px-4 mt-4" type="submit">
-          Analyze
-        </button>
-      </form>
-      {result && (
-        <div className="mt-4">
-          <h2 className="text-xl font-semibold">Result:</h2>
-          <p className="text-lg">{result.sentiment}</p>
-        </div>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold">Sentiment Analysis</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit}>
+            <Textarea
+              className="mb-4"
+              rows={3}
+              value={inputText}
+              onChange={(e: { target: { value: SetStateAction<string>; }; }) => setInputText(e.target.value)}
+              placeholder="Type something to analyze sentiment..."
+            />
+            <div className="mb-4">
+              <Input type="file" accept="image/*" onChange={handleImageChange} />
+            </div>
+            <Button type="submit">Analyze</Button>
+          </form>
+
+          {result && (
+            <div className="mt-4">
+              <h2 className="text-xl font-semibold">Result:</h2>
+              <p className="text-lg">{result.sentiment}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
